@@ -10,6 +10,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.text.method.ScrollingMovementMethod
 import android.view.View
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.example.texttoaudio.databinding.ActivityMainBinding
@@ -18,6 +19,7 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.util.Locale
+import java.io.File
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
@@ -27,7 +29,21 @@ class MainActivity : AppCompatActivity() {
     private var isTtsReady = false
     private var extractedText = ""
     private var currentFileUri: Uri? = null
+    private var pendingPhotoUri: Uri? = null
     private val ocrExecutor = Executors.newSingleThreadExecutor()
+
+    private val takePhotoLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { saved ->
+        val photoUri = pendingPhotoUri
+        pendingPhotoUri = null
+        if (saved && photoUri != null) {
+            currentFileUri = photoUri
+            handleFileSelection(photoUri)
+        } else {
+            binding.statusText.setText(R.string.status_photo_cancelled)
+        }
+    }
 
     // File picker for PDF and image files
     private val filePickerLauncher = registerForActivityResult(
@@ -107,6 +123,10 @@ class MainActivity : AppCompatActivity() {
             openFilePicker("image/*")
         }
 
+        binding.takePhotoButton.setOnClickListener {
+            takePhoto()
+        }
+
         // Play/Pause button
         binding.playPauseButton.setOnClickListener {
             togglePlayback()
@@ -144,6 +164,25 @@ class MainActivity : AppCompatActivity() {
         filePickerLauncher.launch(Intent.createChooser(intent, getString(R.string.chooser_title)))
     }
 
+    private fun takePhoto() {
+        try {
+            val photoDirectory = File(cacheDir, "captured-images").apply {
+                if (!exists() && !mkdirs()) throw IllegalStateException("Could not prepare camera storage")
+            }
+            val photoFile = File.createTempFile("texttoaudio-", ".jpg", photoDirectory)
+            val photoUri = FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                photoFile
+            )
+            pendingPhotoUri = photoUri
+            takePhotoLauncher.launch(photoUri)
+        } catch (error: Exception) {
+            binding.statusText.setText(R.string.status_photo_error)
+            Toast.makeText(this, error.message ?: getString(R.string.status_photo_error), Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun handleFileSelection(uri: Uri) {
         val mimeType = contentResolver.getType(uri)
 
@@ -153,7 +192,9 @@ class MainActivity : AppCompatActivity() {
         binding.statusText.text = getString(R.string.status_reading_image)
 
         when {
-            mimeType?.startsWith("image/") == true -> {
+            mimeType?.startsWith("image/") == true ||
+                uri.lastPathSegment.orEmpty().substringAfterLast('.', "").lowercase() in
+                setOf("jpg", "jpeg", "png", "webp", "heic") -> {
                 extractTextFromImage(uri)
             }
             mimeType == "application/pdf" -> {

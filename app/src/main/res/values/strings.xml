@@ -4,6 +4,8 @@
     <string name="status_ready">প্রস্তুত · Ready</string>
     <string name="status_reading_pdf">PDF পড়া হচ্ছে · Reading PDF…</string>
     <string name="status_reading_image">বাংলা ও English লেখা খোঁজা হচ্ছে · Scanning text…</string>
+    <string name="status_photo_cancelled">ছবি তোলা হয়নি · Photo was not taken</string>
+    <string name="status_photo_error">ক্যামেরা খোলা যায়নি · Could not open the camera</string>
     <string name="status_pdf_complete">PDF থেকে %1$dটি অক্ষর পড়া হয়েছে · %1$d characters read</string>
     <string name="status_image_complete">ছবি থেকে %1$dটি অক্ষর পড়া হয়েছে · %1$d characters read</string>
     <string name="status_no_text">লেখা পাওয়া যায়নি · No text found</string>

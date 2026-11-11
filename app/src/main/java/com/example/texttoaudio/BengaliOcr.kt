@@ -10,6 +10,7 @@ import androidx.exifinterface.media.ExifInterface
 import com.googlecode.tesseract.android.TessBaseAPI
 import java.io.Closeable
 import java.io.File
+import java.io.IOException
 
 /** Offline OCR for Bengali and English text in images and scanned PDF pages. */
 class BengaliOcr(context: Context) : Closeable {
@@ -60,35 +61,49 @@ class BengaliOcr(context: Context) : Closeable {
     }
 
     private fun decodeBitmap(resolver: ContentResolver, uri: Uri): Bitmap {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-            ?: throw IllegalArgumentException("Could not open the selected image")
+        // Some gallery and cloud-photo providers expose one-shot or short-lived streams.
+        // Stage the image once so bounds, pixels, and EXIF all read the same content.
+        val stagedImage = File.createTempFile("ocr-image-", ".img")
+        try {
+            val input = try {
+                resolver.openInputStream(uri)
+            } catch (error: Exception) {
+                throw IOException("The selected image could not be opened. Choose another photo and try again.", error)
+            } ?: throw IOException("The selected image could not be opened. Choose another photo and try again.")
+            input.use { source ->
+                stagedImage.outputStream().use { destination -> source.copyTo(destination) }
+            }
 
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-            throw IllegalArgumentException("The selected image could not be decoded")
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(stagedImage.absolutePath, bounds)
+
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                throw IOException("This image format is not supported. Try a JPG or PNG photo.")
+            }
+
+            var sampleSize = 1
+            while (bounds.outWidth / sampleSize > MAX_IMAGE_DIMENSION ||
+                bounds.outHeight / sampleSize > MAX_IMAGE_DIMENSION
+            ) {
+                sampleSize *= 2
+            }
+
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            val bitmap = BitmapFactory.decodeFile(stagedImage.absolutePath, options)
+                ?: throw IOException("This image could not be decoded. Try another photo.")
+
+            val rotation = runCatching {
+                ExifInterface(stagedImage.absolutePath).getRotationDegrees()
+            }.getOrDefault(0)
+            if (rotation == 0) return bitmap
+
+            val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (rotated !== bitmap) bitmap.recycle()
+            return rotated
+        } finally {
+            stagedImage.delete()
         }
-
-        var sampleSize = 1
-        while (bounds.outWidth / sampleSize > MAX_IMAGE_DIMENSION ||
-            bounds.outHeight / sampleSize > MAX_IMAGE_DIMENSION
-        ) {
-            sampleSize *= 2
-        }
-
-        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        val bitmap = resolver.openInputStream(uri)?.use {
-            BitmapFactory.decodeStream(it, null, options)
-        } ?: throw IllegalArgumentException("Could not decode the selected image")
-
-        val rotation = runCatching {
-            resolver.openInputStream(uri)?.use { ExifInterface(it).getRotationDegrees() } ?: 0
-        }.getOrDefault(0)
-        if (rotation == 0) return bitmap
-
-        val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-        val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        if (rotated !== bitmap) bitmap.recycle()
-        return rotated
     }
 
     private companion object {

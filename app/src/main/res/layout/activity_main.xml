@@ -123,24 +123,36 @@
                         android:layout_height="52dp"
                         android:layout_marginEnd="6dp"
                         android:layout_weight="1"
-                        android:text="▧  ছবি / Image"
+                        android:text="▧  ছবি বাছুন / Gallery"
                         android:textAllCaps="false"
                         android:textSize="14sp"
                         app:cornerRadius="14dp" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/pick_pdf_button"
+                        android:id="@+id/take_photo_button"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="0dp"
                         android:layout_height="52dp"
                         android:layout_marginStart="6dp"
                         android:layout_weight="1"
-                        android:text="▤  PDF"
+                        android:text="📷  ছবি তুলুন / Camera"
                         android:textAllCaps="false"
                         android:textSize="14sp"
                         app:cornerRadius="14dp"
                         app:strokeColor="@color/brand" />
                 </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/pick_pdf_button"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:text="▤  PDF বাছুন / Choose PDF"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    app:cornerRadius="14dp"
+                    app:strokeColor="@color/brand" />
 
                 <TextView
                     android:id="@+id/file_name_text"
