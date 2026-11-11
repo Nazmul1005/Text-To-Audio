@@ -195,7 +195,7 @@ class MainActivity : AppCompatActivity() {
                     binding.progressBar.visibility = View.GONE
                     if (text.isNotBlank()) {
                         extractedText = text.trim()
-                        binding.textPreview.text = extractedText
+                        binding.textPreview.setText(extractedText)
                         binding.statusText.text = "PDF text extracted (${extractedText.length} characters)"
                         binding.playPauseButton.isEnabled = true
                     } else {
@@ -227,7 +227,7 @@ class MainActivity : AppCompatActivity() {
                     val text = visionText.text.trim()
                     if (text.isNotBlank()) {
                         extractedText = text
-                        binding.textPreview.text = extractedText
+                        binding.textPreview.setText(extractedText)
                         binding.statusText.text = "Image text extracted (${extractedText.length} characters)"
                         binding.playPauseButton.isEnabled = true
                     } else {
@@ -296,7 +296,7 @@ class MainActivity : AppCompatActivity() {
         stopPlayback()
         extractedText = ""
         currentFileUri = null
-        binding.textPreview.text = ""
+        binding.textPreview.setText("")
         binding.fileNameText.text = ""
         binding.statusText.text = "Ready"
         binding.playPauseButton.isEnabled = false
