@@ -13,9 +13,9 @@ An Android app that converts text from PDF documents, images, and manual input i
 
 ## Download
 
-**Latest APK:** [GitHub Releases](https://github.com/USERNAME/REPOSITORY/releases) (replace with your repo)
+**Latest APK:** [Download from GitHub Releases](https://github.com/Nazmul1005/Text-To-Audio/releases/latest)
 
-Or install directly from the [GitHub Pages download page](https://USERNAME.github.io/REPOSITORY/) (replace with your repo).
+Or download directly from the [GitHub Pages download page](https://nazmul1005.github.io/Text-To-Audio/).
 
 > **Requirements:** Android 7.0+ (API 24+)
 
