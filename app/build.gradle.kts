@@ -4,7 +4,7 @@ plugins {
 }
 
 // Apply signing configuration
-apply from: rootProject.file("signing.gradle")
+apply(from = rootProject.file("signing.gradle"))
 
 android {
     namespace = "com.example.texttoaudio"
