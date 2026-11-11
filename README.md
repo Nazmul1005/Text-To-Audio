@@ -44,6 +44,45 @@ Or via command line:
 # APK at: app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## APK Signing
+
+### Local Signing (Development)
+1. Generate a keystore:
+```bash
+./generate-keystore.sh
+```
+
+2. Copy `keystore.properties.example` to `keystore.properties` and fill in your values:
+```properties
+keystoreFile=keystore/release.keystore
+keystorePassword=your_password
+keyAlias=release
+keyPassword=your_password
+```
+
+3. Build signed release APK:
+```bash
+./gradlew assembleRelease
+# Signed APK at: app/build/outputs/apk/release/app-release.apk
+```
+
+### CI/CD Signing (GitHub Actions)
+For signed releases via GitHub Actions, set these secrets in your repository:
+
+1. Go to **Settings → Secrets and variables → Actions**
+2. Add these secrets:
+   - `KEYSTORE_PASSWORD` — Your keystore password
+   - `KEY_PASSWORD` — Your key password
+   - `KEY_ALIAS` — Your key alias (e.g., `release`)
+   - `KEYSTORE_FILE` — Base64-encoded keystore file
+
+To encode the keystore as base64:
+```bash
+base64 keystore/release.keystore
+```
+
+The GitHub Actions workflow will automatically sign release APKs when these secrets are set.
+
 ## Tech Stack
 
 | Layer | Technology |
