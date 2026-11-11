@@ -1,0 +1,40 @@
+/*
+ * Signing configuration for TextToAudio
+ *
+ * Reads credentials from:
+ *   1. keystore.properties file (local development)
+ *   2. Environment variables (CI/CD - GitHub Actions)
+ *
+ * Never commit keystore.properties to version control!
+ */
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = file("keystore.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def signingPassword = keystoreProperties["keystorePassword"] ?: System.getenv("KEYSTORE_PASSWORD")
+def signingAlias = keystoreProperties["keyAlias"] ?: System.getenv("KEY_ALIAS")
+def signingKeyPassword = keystoreProperties["keyPassword"] ?: System.getenv("KEY_PASSWORD")
+def signingFile = keystoreProperties["keystoreFile"] ?: System.getenv("KEYSTORE_FILE")
+
+android {
+    signingConfigs {
+        release {
+            storeFile = file(signingFile ?: "keystore/release.keystore")
+            storePassword = signingPassword
+            keyAlias = signingAlias
+            keyPassword = signingKeyPassword
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.release
+            isMinifyEnabled = true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+}

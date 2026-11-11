@@ -8,6 +8,13 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  # Keystore credentials - set in GitHub Secrets
+  KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+  KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+  KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+  KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,8 +38,13 @@ jobs:
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 
-    - name: Build Release APK (unsigned)
+    - name: Build Signed Release APK
       run: ./gradlew assembleRelease
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
@@ -41,11 +53,11 @@ jobs:
         path: app/build/outputs/apk/debug/app-debug.apk
         retention-days: 30
 
-    - name: Upload Release APK
+    - name: Upload Signed Release APK
       uses: actions/upload-artifact@v4
       with:
         name: app-release
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
+        path: app/build/outputs/apk/release/app-release.apk
         retention-days: 30
 
   release:
@@ -61,7 +73,7 @@ jobs:
         name: app-debug
         path: artifacts/debug
 
-    - name: Download Release APK
+    - name: Download Signed Release APK
       uses: actions/download-artifact@v4
       with:
         name: app-release
@@ -72,7 +84,7 @@ jobs:
       with:
         files: |
           artifacts/debug/app-debug.apk
-          artifacts/release/app-release-unsigned.apk
+          artifacts/release/app-release.apk
         generate_release_notes: true
         draft: false
         prerelease: false
@@ -92,7 +104,7 @@ jobs:
         name: app-debug
         path: artifacts/debug
 
-    - name: Download Release APK
+    - name: Download Signed Release APK
       uses: actions/download-artifact@v4
       with:
         name: app-release
@@ -187,6 +199,14 @@ jobs:
             }
             .qr-code img { max-width: 150px; }
             .qr-code p { margin-top: 8px; color: #999; font-size: 13px; }
+            .btn-group {
+              display: flex;
+              gap: 12px;
+              flex-direction: column;
+            }
+            .download-btn.secondary {
+              background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            }
           </style>
         </head>
         <body>
@@ -201,9 +221,14 @@ jobs:
               <span class="feature">🔊 Offline TTS</span>
             </div>
 
-            <a class="download-btn" href="app-debug.apk" download>
-              📱 Download APK (Debug)
-            </a>
+            <div class="btn-group">
+              <a class="download-btn" href="app-debug.apk" download>
+                📱 Download Debug APK
+              </a>
+              <a class="download-btn secondary" href="app-release.apk" download>
+                ✅ Download Signed Release APK
+              </a>
+            </div>
 
             <div class="version-info">
               Built from <code>${{ github.sha }}</code><br>
@@ -211,7 +236,7 @@ jobs:
             </div>
 
             <div class="qr-code">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${{ github.server_url }}/${{ github.repository }}/releases/latest/download/app-debug.apk" alt="QR Code for APK download">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${{ github.server_url }}/${{ github.repository }}/releases/latest/download/app-release.apk" alt="QR Code for APK download">
               <p>Scan to download on your phone</p>
             </div>
           </div>
@@ -219,9 +244,9 @@ jobs:
         </html>
         EOF
 
-        # Copy APK to site root
+        # Copy APKs to site root
         cp artifacts/debug/app-debug.apk _site/app-debug.apk
-        cp artifacts/release/app-release-unsigned.apk _site/app-release.apk 2>/dev/null || true
+        cp artifacts/release/app-release.apk _site/app-release.apk 2>/dev/null || true
 
     - name: Upload Pages artifact
       uses: actions/upload-pages-artifact@v3

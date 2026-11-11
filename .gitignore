@@ -27,6 +27,7 @@ Thumbs.db
 *.keystore
 *.jks
 *.store
+keystore.properties
 
 # Generated files
 *.html
