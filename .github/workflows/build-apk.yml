@@ -245,8 +245,10 @@ jobs:
             </div>
 
             <div class="qr-code">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${{ github.server_url }}/${{ github.repository }}/releases/latest/download/app-release.apk" alt="QR Code for APK download">
-              <p>Scan to download on your phone</p>
+              <a href="app-release.apk" aria-label="Download the signed release APK">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=https%3A%2F%2F${{ github.repository_owner }}.github.io%2F${{ github.event.repository.name }}%2Fapp-release.apk" alt="QR code linking to the signed release APK">
+              </a>
+              <p>Scan or tap to download the signed APK</p>
             </div>
           </div>
         </body>
