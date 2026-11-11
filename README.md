@@ -1,21 +1,25 @@
 # TextToAudio 🎙️
 
-An Android app that converts text from PDF documents, images, and manual input into natural-sounding audio using on-device Text-to-Speech.
+An Android app that extracts Bengali and English text from PDFs and images, then reads it aloud with Android Text-to-Speech.
 
 ## Features
 
-- 📄 **PDF Text Extraction** — Parse text from PDF documents using Apache PDFBox
-- 📷 **Image OCR** — Extract text from photos/scans using Google ML Kit Text Recognition
+- 📄 **PDF Reading** — Extract selectable text and OCR scanned PDF pages
+- 📷 **Bengali + English OCR** — Read text in images and scanned PDFs offline on-device
 - ✍️ **Manual Input** — Type or paste text directly
 - 🔊 **Offline TTS** — Android's built-in Text-to-Speech engine (no internet required)
 - ▶️ **Playback Controls** — Play, Pause, Stop
 - 🎨 **Clean UI** — Material Design with scrollable text preview
 
+OCR is offline. Bengali and English speech uses the voices available in your Android text-to-speech engine. If Bengali is unavailable, install Bengali voice data from your device's Text-to-Speech settings.
+
+Bengali and English OCR uses [Tesseract4Android](https://github.com/adaptech-cz/Tesseract4Android) and the [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) language models. The model license is included in `app/src/main/assets/tessdata/LICENSE`.
+
 ## Download
 
-**Latest APK:** [Download from GitHub Releases](https://github.com/Nazmul1005/Text-To-Audio/releases/latest)
+**Download the app:** [TextToAudio for Android](https://nazmul1005.github.io/Text-To-Audio/)
 
-Or download directly from the [GitHub Pages download page](https://nazmul1005.github.io/Text-To-Audio/).
+The Pages site and QR code both point to the same signed APK. The debug APK is only for development and is not the one users should install.
 
 > **Requirements:** Android 7.0+ (API 24+)
 
@@ -90,7 +94,7 @@ The GitHub Actions workflow will automatically sign release APKs when these secr
 | Language | Kotlin |
 | UI | XML + ViewBinding |
 | PDF Parsing | Apache PDFBox (Android port) |
-| OCR | Google ML Kit Text Recognition |
+| OCR | Tesseract4Android (Bengali + English, offline) |
 | TTS | Android TextToSpeech API |
 | Build | Gradle (Kotlin DSL) |
 
@@ -99,7 +103,7 @@ The GitHub Actions workflow will automatically sign release APKs when these secr
 ```
 ┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │  File Input │────▶│  Text Extraction │────▶│  TTS Synthesis  │
-│  (PDF/Image)│     │  (PDFBox/ML Kit) │     │  (Android TTS)  │
+│  (PDF/Image)│     │ (PDFBox/Tesseract)│    │  (Android TTS)  │
 └─────────────┘     └──────────────────┘     └─────────────────┘
 ```
 

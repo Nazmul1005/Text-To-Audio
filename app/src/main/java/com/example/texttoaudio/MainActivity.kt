@@ -1,9 +1,7 @@
 package com.example.texttoaudio
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -14,17 +12,13 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import com.example.texttoaudio.databinding.ActivityMainBinding
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.rendering.PDFRenderer
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.util.Locale
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private var isTtsReady = false
     private var extractedText = ""
     private var currentFileUri: Uri? = null
+    private val ocrExecutor = Executors.newSingleThreadExecutor()
 
     // File picker for PDF and image files
     private val filePickerLauncher = registerForActivityResult(
@@ -64,15 +59,9 @@ class MainActivity : AppCompatActivity() {
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 isTtsReady = true
-                tts?.language = Locale.US
-                // Check if voice is available
-                val result = tts?.setLanguage(Locale.US)
-                if (result == TextToSpeech.LANG_MISSING_DATA ||
-                    result == TextToSpeech.LANG_NOT_SUPPORTED
-                ) {
-                    Toast.makeText(this, "TTS Language not supported", Toast.LENGTH_SHORT).show()
-                }
                 setupTTSListener()
+            } else {
+                binding.statusText.text = getString(R.string.tts_unavailable)
             }
         }
     }
@@ -81,25 +70,25 @@ class MainActivity : AppCompatActivity() {
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
                 runOnUiThread {
-                    binding.playPauseButton.text = "Pause"
-                    binding.statusText.text = "Speaking..."
+                    binding.playPauseButton.setText(R.string.pause_label)
+                    binding.statusText.setText(R.string.status_speaking)
                 }
             }
 
             override fun onDone(utteranceId: String?) {
                 runOnUiThread {
-                    binding.playPauseButton.text = "Play"
-                    binding.statusText.text = "Ready"
+                    binding.playPauseButton.setText(R.string.play_label)
+                    binding.statusText.setText(R.string.status_ready)
                 }
             }
 
             override fun onError(utteranceId: String?) {
                 runOnUiThread {
-                    binding.playPauseButton.text = "Play"
-                    binding.statusText.text = "Error during playback"
+                    binding.playPauseButton.setText(R.string.play_label)
+                    binding.statusText.setText(R.string.status_tts_error)
                     Toast.makeText(
                         this@MainActivity,
-                        "TTS Error",
+                        getString(R.string.status_tts_error),
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -135,6 +124,16 @@ class MainActivity : AppCompatActivity() {
 
         // Make text preview scrollable
         binding.textPreview.movementMethod = ScrollingMovementMethod()
+
+        binding.ttsLanguageToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                binding.languageHintText.text = when (checkedId) {
+                    R.id.bengali_language_button -> getString(R.string.language_bengali_selected)
+                    R.id.english_language_button -> getString(R.string.language_english_selected)
+                    else -> getString(R.string.language_auto_selected)
+                }
+            }
+        }
     }
 
     private fun openFilePicker(mimeType: String) {
@@ -142,7 +141,7 @@ class MainActivity : AppCompatActivity() {
             type = mimeType
             addCategory(Intent.CATEGORY_OPENABLE)
         }
-        filePickerLauncher.launch(Intent.createChooser(intent, "Select File"))
+        filePickerLauncher.launch(Intent.createChooser(intent, getString(R.string.chooser_title)))
     }
 
     private fun handleFileSelection(uri: Uri) {
@@ -150,8 +149,8 @@ class MainActivity : AppCompatActivity() {
 
         // Get file name
         val fileName = getFileName(uri)
-        binding.fileNameText.text = "Selected: $fileName"
-        binding.statusText.text = "Extracting text..."
+        binding.fileNameText.text = getString(R.string.selected_file, fileName)
+        binding.statusText.text = getString(R.string.status_reading_image)
 
         when {
             mimeType?.startsWith("image/") == true -> {
@@ -161,13 +160,13 @@ class MainActivity : AppCompatActivity() {
                 extractTextFromPdf(uri)
             }
             else -> {
-                Toast.makeText(this, "Unsupported file type", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_unsupported_file, Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun getFileName(uri: Uri): String {
-        var result = "Unknown"
+        var result = getString(R.string.status_error)
         contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
                 val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -180,91 +179,133 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun extractTextFromPdf(uri: Uri) {
-        binding.statusText.text = "Extracting text from PDF..."
+        binding.statusText.text = getString(R.string.status_reading_pdf)
         binding.progressBar.visibility = View.VISIBLE
 
-        Thread {
+        ocrExecutor.execute {
+            var ocr: BengaliOcr? = null
             try {
+                val pages = mutableListOf<String>()
                 val inputStream = contentResolver.openInputStream(uri)
-                val document = PDDocument.load(inputStream)
-                val stripper = PDFTextStripper()
-                val text = stripper.getText(document)
-                document.close()
+                    ?: throw IllegalArgumentException("Could not open the selected PDF")
+                inputStream.use { stream ->
+                    PDDocument.load(stream).use { document ->
+                        val renderer = PDFRenderer(document)
+                        for (pageIndex in 0 until document.numberOfPages) {
+                            val stripper = PDFTextStripper().apply {
+                                startPage = pageIndex + 1
+                                endPage = pageIndex + 1
+                            }
+                            var pageText = stripper.getText(document).trim()
+                            if (pageText.isBlank()) {
+                                if (ocr == null) ocr = BengaliOcr(this)
+                                val pageBitmap = renderer.renderImageWithDPI(pageIndex, 150f)
+                                pageText = try {
+                                    ocr!!.recognize(pageBitmap)
+                                } finally {
+                                    pageBitmap.recycle()
+                                }
+                            }
+                            if (pageText.isNotBlank()) pages += pageText
+                        }
+                    }
+                }
+                val text = pages.joinToString("\n\n")
 
                 runOnUiThread {
                     binding.progressBar.visibility = View.GONE
                     if (text.isNotBlank()) {
                         extractedText = text.trim()
                         binding.textPreview.setText(extractedText)
-                        binding.statusText.text = "PDF text extracted (${extractedText.length} characters)"
+                        binding.statusText.text = getString(
+                            R.string.status_pdf_complete,
+                            extractedText.length
+                        )
                         binding.playPauseButton.isEnabled = true
                     } else {
-                        binding.statusText.text = "No text found in PDF"
-                        Toast.makeText(this, "No text extracted from PDF", Toast.LENGTH_SHORT).show()
+                        binding.statusText.text = getString(R.string.status_no_text)
+                        Toast.makeText(this, R.string.toast_no_text, Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
                     binding.progressBar.visibility = View.GONE
-                    binding.statusText.text = "Error extracting PDF"
-                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    binding.statusText.text = getString(R.string.status_error)
+                    Toast.makeText(this, e.message ?: getString(R.string.status_error), Toast.LENGTH_SHORT).show()
                 }
+            } finally {
+                ocr?.close()
             }
-        }.start()
+        }
     }
 
     private fun extractTextFromImage(uri: Uri) {
-        binding.statusText.text = "Extracting text from image..."
+        binding.statusText.text = getString(R.string.status_reading_image)
         binding.progressBar.visibility = View.VISIBLE
 
-        try {
-            val image = InputImage.fromFilePath(this, uri)
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-
-            recognizer.process(image)
-                .addOnSuccessListener { visionText ->
+        ocrExecutor.execute {
+            var ocr: BengaliOcr? = null
+            try {
+                ocr = BengaliOcr(this)
+                val text = ocr.recognize(contentResolver, uri)
+                runOnUiThread {
                     binding.progressBar.visibility = View.GONE
-                    val text = visionText.text.trim()
                     if (text.isNotBlank()) {
                         extractedText = text
                         binding.textPreview.setText(extractedText)
-                        binding.statusText.text = "Image text extracted (${extractedText.length} characters)"
+                        binding.statusText.text = getString(
+                            R.string.status_image_complete,
+                            extractedText.length
+                        )
                         binding.playPauseButton.isEnabled = true
                     } else {
-                        binding.statusText.text = "No text found in image"
-                        Toast.makeText(this, "No text detected in image", Toast.LENGTH_SHORT).show()
+                        binding.statusText.text = getString(R.string.status_no_text)
+                        Toast.makeText(this, R.string.toast_no_text, Toast.LENGTH_SHORT).show()
                     }
                 }
-                .addOnFailureListener { e ->
+            } catch (e: Exception) {
+                runOnUiThread {
                     binding.progressBar.visibility = View.GONE
-                    binding.statusText.text = "Error extracting text from image"
-                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    binding.statusText.text = getString(R.string.status_error)
+                    Toast.makeText(this, e.message ?: getString(R.string.status_error), Toast.LENGTH_SHORT).show()
                 }
-        } catch (e: Exception) {
-            binding.progressBar.visibility = View.GONE
-            binding.statusText.text = "Error loading image"
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                ocr?.close()
+            }
         }
     }
 
     private fun togglePlayback() {
         if (!isTtsReady) {
-            Toast.makeText(this, "TTS not ready yet", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_tts_not_ready, Toast.LENGTH_SHORT).show()
             return
         }
 
         val text = binding.textPreview.text.toString().trim()
         if (text.isBlank()) {
-            Toast.makeText(this, "No text to read", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_text_to_read, Toast.LENGTH_SHORT).show()
             return
         }
+
+        val language = selectedTtsLocale(text)
+        val languageSupport = tts?.isLanguageAvailable(language) ?: TextToSpeech.LANG_NOT_SUPPORTED
+        if (languageSupport < TextToSpeech.LANG_AVAILABLE) {
+            val message = if (language.language == "bn") {
+                getString(R.string.toast_bengali_voice_missing)
+            } else {
+                getString(R.string.toast_english_voice_missing)
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            return
+        }
+        tts?.setLanguage(language)
 
         // Check if currently speaking
         if (tts?.isSpeaking == true) {
             // Pause current speech
             tts?.stop()
-            binding.playPauseButton.text = "Play"
-            binding.statusText.text = "Paused"
+            binding.playPauseButton.setText(R.string.play_label)
+            binding.statusText.setText(R.string.status_paused)
         } else {
             // Start speaking
             extractedText = text
@@ -284,11 +325,23 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun selectedTtsLocale(text: String): Locale {
+        return when (binding.ttsLanguageToggle.checkedButtonId) {
+            R.id.bengali_language_button -> Locale("bn", "BD")
+            R.id.english_language_button -> Locale.US
+            else -> if (text.any { it in '\u0980'..'\u09FF' }) {
+                Locale("bn", "BD")
+            } else {
+                Locale.US
+            }
+        }
+    }
+
     private fun stopPlayback() {
         if (tts?.isSpeaking == true) {
             tts?.stop()
-            binding.playPauseButton.text = "Play"
-            binding.statusText.text = "Stopped"
+            binding.playPauseButton.setText(R.string.play_label)
+            binding.statusText.setText(R.string.status_stopped)
         }
     }
 
@@ -298,11 +351,12 @@ class MainActivity : AppCompatActivity() {
         currentFileUri = null
         binding.textPreview.setText("")
         binding.fileNameText.text = ""
-        binding.statusText.text = "Ready"
+        binding.statusText.setText(R.string.status_ready)
         binding.playPauseButton.isEnabled = false
     }
 
     override fun onDestroy() {
+        ocrExecutor.shutdownNow()
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()

@@ -54,8 +54,9 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Google ML Kit for Image OCR
-    implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Offline Bengali and English OCR
+    implementation(libs.tesseract4android)
+    implementation(libs.exifinterface)
 
     // Android PDFBox for PDF text extraction
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")

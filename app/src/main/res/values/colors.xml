@@ -5,4 +5,13 @@
     <color name="colorAccent">#03DAC6</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <color name="app_background">#F6F7F4</color>
+    <color name="card_surface">#FFFFFF</color>
+    <color name="card_stroke">#DFE7E1</color>
+    <color name="ink">#14251F</color>
+    <color name="ink_muted">#60716A</color>
+    <color name="brand">#146C56</color>
+    <color name="brand_dark">#0E4E3F</color>
+    <color name="mint_surface">#DCEFE6</color>
+    <color name="input_surface">#F7FAF8</color>
 </resources>
