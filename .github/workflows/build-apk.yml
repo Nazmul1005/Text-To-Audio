@@ -1,0 +1,232 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./gradlew
+
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Build Release APK (unsigned)
+      run: ./gradlew assembleRelease
+
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: app/build/outputs/apk/release/app-release-unsigned.apk
+        retention-days: 30
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download Debug APK
+      uses: actions/download-artifact@v4
+      with:
+        name: app-debug
+        path: artifacts/debug
+
+    - name: Download Release APK
+      uses: actions/download-artifact@v4
+      with:
+        name: app-release
+        path: artifacts/release
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/debug/app-debug.apk
+          artifacts/release/app-release-unsigned.apk
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+
+  deploy-pages:
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+    - name: Download Debug APK
+      uses: actions/download-artifact@v4
+      with:
+        name: app-debug
+        path: artifacts/debug
+
+    - name: Download Release APK
+      uses: actions/download-artifact@v4
+      with:
+        name: app-release
+        path: artifacts/release
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Create download page
+      run: |
+        mkdir -p _site
+        cat > _site/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>TextToAudio - Download APK</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+            }
+            .container {
+              background: white;
+              border-radius: 20px;
+              padding: 40px;
+              max-width: 500px;
+              width: 100%;
+              box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+              text-align: center;
+            }
+            .icon {
+              width: 80px;
+              height: 80px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              border-radius: 20px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 24px;
+              font-size: 36px;
+            }
+            h1 { color: #333; font-size: 28px; margin-bottom: 8px; }
+            .subtitle { color: #666; margin-bottom: 32px; font-size: 16px; }
+            .features {
+              display: flex;
+              gap: 12px;
+              justify-content: center;
+              margin-bottom: 32px;
+              flex-wrap: wrap;
+            }
+            .feature {
+              background: #f5f5f5;
+              padding: 8px 16px;
+              border-radius: 20px;
+              font-size: 13px;
+              color: #555;
+            }
+            .download-btn {
+              display: inline-block;
+              width: 100%;
+              padding: 16px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              text-decoration: none;
+              border-radius: 12px;
+              font-size: 18px;
+              font-weight: 600;
+              transition: transform 0.2s, box-shadow 0.2s;
+            }
+            .download-btn:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+            }
+            .download-btn:active { transform: translateY(0); }
+            .version-info {
+              margin-top: 24px;
+              color: #999;
+              font-size: 14px;
+            }
+            .qr-code {
+              margin-top: 24px;
+              padding-top: 24px;
+              border-top: 1px solid #eee;
+            }
+            .qr-code img { max-width: 150px; }
+            .qr-code p { margin-top: 8px; color: #999; font-size: 13px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="icon">🔊</div>
+            <h1>TextToAudio</h1>
+            <p class="subtitle">Convert PDF & Images to Natural Speech</p>
+
+            <div class="features">
+              <span class="feature">📄 PDF Text Extraction</span>
+              <span class="feature">📷 Image OCR (ML Kit)</span>
+              <span class="feature">🔊 Offline TTS</span>
+            </div>
+
+            <a class="download-btn" href="app-debug.apk" download>
+              📱 Download APK (Debug)
+            </a>
+
+            <div class="version-info">
+              Built from <code>${{ github.sha }}</code><br>
+              <strong>Android 7.0+</strong> (API 24+) | <strong>~8 MB</strong>
+            </div>
+
+            <div class="qr-code">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${{ github.server_url }}/${{ github.repository }}/releases/latest/download/app-debug.apk" alt="QR Code for APK download">
+              <p>Scan to download on your phone</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        EOF
+
+        # Copy APK to site root
+        cp artifacts/debug/app-debug.apk _site/app-debug.apk
+        cp artifacts/release/app-release-unsigned.apk _site/app-release.apk 2>/dev/null || true
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: _site
+
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v4

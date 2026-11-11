@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">TextToAudio</string>
+    <string name="app_title">Text to Audio Converter</string>
+    <string name="input_section">Input Selection</string>
+    <string name="pick_pdf">Pick PDF</string>
+    <string name="pick_image">Pick Image</string>
+    <string name="text_preview_label">Text Preview</string>
+    <string name="no_file_selected">No file selected</string>
+    <string name="status_ready">Ready</string>
+    <string name="play">Play</string>
+    <string name="stop">Stop</string>
+    <string name="clear">Clear</string>
+</resources>
